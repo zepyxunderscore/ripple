@@ -217,6 +217,24 @@ export default function App() {
   useEffect(() => { saveToStorage('density', density) }, [density])
   useEffect(() => { saveToStorage('glyphStyle', glyphStyle) }, [glyphStyle])
 
+  // Load from GitHub on every page refresh when in GitHub mode
+  useEffect(() => {
+    if (authMode === 'github' && ghConfig) {
+      loadFromGitHub()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-sync to GitHub when data changes (debounced 3s)
+  useEffect(() => {
+    if (authMode !== 'github' || !ghConfig) return
+    const timer = setTimeout(() => {
+      syncToGitHub()
+    }, 3000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [habits, bundles, activeBundleId, pomodoroSessions, authMode, ghConfig])
+
   const sortedHabits = [...habits].sort((a, b) => a.order - b.order)
 
   // Today's stats for sidebar
@@ -348,11 +366,12 @@ export default function App() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       setGhSha(json.sha)
-      const remote: { habits?: Habit[]; bundles?: Bundle[]; activeBundleId?: string } =
+      const remote: { habits?: Habit[]; bundles?: Bundle[]; activeBundleId?: string; pomodoroSessions?: PomodoroSession[] } =
         JSON.parse(atob(json.content.replace(/\n/g, '')))
       if (remote.habits) setHabits(remote.habits)
       if (remote.bundles) setBundles(remote.bundles)
       if (remote.activeBundleId !== undefined) setActiveBundleId(remote.activeBundleId)
+      if (remote.pomodoroSessions) setPomodoroSessions(remote.pomodoroSessions)
       setSyncState('ok'); setSyncLabel('Synced')
     } catch (e: unknown) {
       setSyncState('err'); setSyncLabel('Error')
@@ -363,7 +382,7 @@ export default function App() {
     if (!ghConfig) return
     setSyncState('busy'); setSyncLabel('Saving…')
     try {
-      const payload = { habits, bundles, activeBundleId }
+      const payload = { habits, bundles, activeBundleId, pomodoroSessions }
       const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))))
       const body: Record<string, unknown> = {
         message: `Habit update ${dateKey(new Date())}`,
@@ -384,7 +403,7 @@ export default function App() {
     } catch (e: unknown) {
       setSyncState('err'); setSyncLabel('Failed')
     }
-  }, [ghConfig, ghUrl, ghHeaders, habits, bundles, activeBundleId, ghSha, loadFromGitHub])
+  }, [ghConfig, ghUrl, ghHeaders, habits, bundles, activeBundleId, ghSha, pomodoroSessions, loadFromGitHub])
 
   const connectGitHub = useCallback(() => {
     const { token, owner, repo, path } = ghForm
