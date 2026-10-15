@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ripple</string>
+    <string name="retry">Retry</string>
+    <string name="offline_message">Couldn\'t reach Ripple.\nCheck your connection and try again.</string>
+</resources>
